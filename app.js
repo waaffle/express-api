@@ -1,26 +1,27 @@
-var createError = require('http-errors');
-var express = require('express');
-var path = require('path');
-var cookieParser = require('cookie-parser');
-var logger = require('morgan');
+const createError = require('http-errors');
+const express = require('express');
+const path = require('path');
+const cookieParser = require('cookie-parser');
+const logger = require('morgan');
+const fs = require('fs');
 
-var indexRouter = require('./routes/index');
-var usersRouter = require('./routes/users');
-
-var app = express();
-
-// view engine setup
-app.set('views', path.join(__dirname, 'views'));
-app.set('view engine', 'jade');
+const app = express();
 
 app.use(logger('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
-app.use(express.static(path.join(__dirname, 'public')));
+app.set('view engine', 'jade');
 
-app.use('/', indexRouter);
-app.use('/users', usersRouter);
+//раздаем статические файлы из папки 'uploads'
+app.use('/uploads', express.static('uploads'))
+
+app.use('/api', require('./routes'))
+
+if (!fs.existsSync('uploads')){
+  fs.mkdirSync('uploads');
+}
+
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
