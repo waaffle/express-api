@@ -45,7 +45,7 @@ const LikeController = {
                 return res.status(404).json({error: "Нет лайка"}); 
             }
 
-            await prisma.like.deleteMany({where: {postId, userId}});
+            await prisma.like.delete({where: {id: like.id}});
 
             res.json(like);
         } catch (error) {
