@@ -21,9 +21,10 @@ const UserController = {
             }
 
             const hashedPassword = await bcrypt.hash(password, 10);
-            const png = jdenticon.toPng(name, 200);
+            const png = jdenticon.toPng(`${name}_${Date.now()}`, 200);
             const avatarName = `${name}_${Date.now()}.png`;
-            const avatarPath = path.join(__dirname, '../uploads', avatarName);
+            const avatarPath = path.join(__dirname, '/../uploads', avatarName);
+            console.log(avatarPath)
             fs.writeFileSync(avatarPath, png);
 
             const user = await prisma.user.create({

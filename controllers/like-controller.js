@@ -1,42 +1,52 @@
 const { prisma } = require("../prisma/prisma-client")
 
 const LikeController = {
-    createLike: async (req, res) => {
+    likePost: async (req, res) => {
         const { postId } = req.body;
+        const userId = req.user.userId;
         if (!postId){
             return res.status(400).json({error: "Все поля обязательные"});
         }
         try {
+            const existingLike = await prisma.like.findFirst({where: {
+                postId,
+                userId
+            }})
+
+            if (existingLike){
+                return res.status(400).json({error: "Вы уже поставили лайк"});
+            }
+
             const like = await prisma.like.create({
                 data: {
                     postId,
-                    userId: req.user.userId
+                    userId
                 }
             })
+
             res.json(like);
         } catch (error) {
             console.error("Error in createLike", error);
             return res.status(500).json({error: "Internal server error"})
         }
     },
-    deleteLike: async (req, res) => {
-        const { id } = req.params;
+    unlikePost: async (req, res) => {
+        const { postId } = req.params;
+        const userId = req.user.userId;
 
-        if (id.length!=24) {
+        if (postId.length!=24) {
             return res.status(400).json({error: "Некорректный id"})
         }
 
-        const userId = req.user.userId;
-
         try {
-            const like = await prisma.like.findUnique({where: {id}});
+            const like = await prisma.like.findFirst({where: {postId, userId}});
+
             if (!like) {
-                return res.status(404).json({error: "Лайк не найден"}); 
+                return res.status(404).json({error: "Нет лайка"}); 
             }
-            if (like.userId != userId){
-                return res.status(403).json({error: "Нельзя удалить чужой лайк"});
-            }
-            await prisma.like.delete({where: {id}});
+
+            await prisma.like.deleteMany({where: {postId, userId}});
+
             res.json(like);
         } catch (error) {
             console.error("Error in deleteLike", error);
