@@ -20,15 +20,25 @@ const PostController = {
         }
     },
     getAllPosts: async (req, res) => {
+        const userId = req.user.userId;
         try {
             const posts = await prisma.post.findMany({
                 include: {
                     likes: true,
                     comments: true,
                     author: true
+                },
+                orderBy: {
+                    createdAt: "desc"
                 }
             });
-            res.json(posts);
+
+            const postsWithLikeInfo = posts.map(post => ({
+                ...post,
+                likedByUser: post.likes.some(like => (like.userId === userId))
+            }))
+
+            res.json(postsWithLikeInfo);
         } catch (error) {
             console.error("Error in getAllPosts", error);
             return res.status(500).json({error: "Internal server error"})
@@ -36,6 +46,7 @@ const PostController = {
     },
     getPostById: async (req, res) => {
         const { id } = req.params;
+        const userId = req.user.userId;
 
         if (id.length!=24) {
             return res.status(400).json({error: "Некорректный id"})
@@ -45,14 +56,23 @@ const PostController = {
             const post = await prisma.post.findUnique({where: {id},
             include: {
                 likes: true,
-                comments: true,
+                comments: {
+                    include: {
+                        user: true,
+                    }},
                 author: true
             }});
 
             if (!post){
                 return res.status(404).json({error: "Пост не найден"});
             }
-            res.json(post);
+
+            const postWithLikeInfo = {
+                ...post,
+                likedByUser: post.likes.some(like => like.userId === userId)
+            }
+            res.json(postWithLikeInfo);
+
         } catch (error) {
             console.error("Error in getPostById", error);
             return res.status(500).json({error: "Internal server error"});
@@ -60,18 +80,30 @@ const PostController = {
     },
     deletePost: async (req, res) => {
         const { id } = req.params;
+        const userId = req.user.userId;
 
         if (id.length!=24) {
             return res.status(400).json({error: "Некорректный id"})
         }
 
         try {
-            const post = await prisma.post.delete({where: {id}});
+            const post = await prisma.post.findUnique({where: {id}});
 
             if (!post){
                 return res.status(404).json({error: "Пост не найден"});
             }
-            res.json(post);
+
+            if (post.authorId !== userId){
+                return res.status(403).json({error: "Нельзя удалить чужой пост"})
+            }
+
+            const transaction = await prisma.$transaction([
+                prisma.like.deleteMany({where: {postId: id}}),
+                prisma.comment.deleteMany({where: {postId: id}}),
+                prisma.post.delete({where: {id}}),
+            ])
+            
+            res.json(transaction);
         } catch (error) {
             console.error("Error in deletePost", error);
             return res.status(500).json({error: "Internal server error"});
